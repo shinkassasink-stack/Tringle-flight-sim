@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tringle Flight Simulator - Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #111;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        /* UI Overlay */
+        #ui-container {
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            pointer-events: none;
+        }
+        .control-zone {
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.4);
+            border: 4px solid #fff;
+            border-image: -webkit-linear-gradient(top, #fff, #999) 1;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        /* Joystick Styles */
+        #joystick-boundary {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(50, 50, 50, 0.6);
+        }
+        #joystick-stick {
+            width: 40px;
+            height: 40px;
+            background: #ff4500;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            position: absolute;
+            cursor: pointer;
+        }
+        /* Throttle Styles */
+        #throttle-container {
+            width: 60px;
+            height: 140px;
+            position: relative;
+            background: rgba(50, 50, 50, 0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+        #throttle-track {
+            position: absolute;
+            width: 8px;
+            height: 100px;
+            background: #222;
+            border: 1px solid #555;
+            top: 20px;
+        }
+        #throttle-knob {
+            position: absolute;
+            width: 44px;
+            height: 24px;
+            background: #00ffcc;
+            border: 3px solid #fff;
+            top: 58px; /* Centered initially */
+            cursor: pointer;
+            box-shadow: 0 0 5px #00ffcc;
+        }
+        #telemetry {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #00ff00;
+            font-size: 14px;
+            text-shadow: 2px 2px #000;
+            line-height: 1.5;
+            pointer-events: none;
+        }
+        #home-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 255, 204, 0.8);
+            color: #000;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        #home-button:hover {
+            background: rgba(0, 255, 204, 1);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <button id="home-button" onclick="window.location.href='../index.html'">← HOME</button>
+
+    <div id="telemetry">
+        ALTITUDE: <span id="alt-val">0</span>M<br>
+        SPEED: <span id="spd-val">0</span>MPH
+    </div>
+
+    <div id="ui-container">
+        <div id="throttle-container" class="control-zone">
+            <div id="throttle-track"></div>
+            <div id="throttle-knob"></div>
+        </div>
+
+        <div id="joystick-boundary" class="control-zone">
+            <div id="joystick-stick"></div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Telemetry elements
+        const altVal = document.getElementById('alt-val');
+        const spdVal = document.getElementById('spd-val');
+
+        // Game resolution for pixelated feel
+        const V_WIDTH = 400;
+        const V_HEIGHT = 240;
+
+        function resize() {
+            canvas.width = V_WIDTH;
+            canvas.height = V_HEIGHT;
+            // Keep pixel crisp
+            ctx.imageSmoothingEnabled = false;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // --- GAME STATE ---
+        // Camera/Player state
+        const player = {
+            x: 0,
+            y: 15, // Height above ground
+            z: -30,
+            pitch: 0,
+            yaw: 0,
+            speed: 0
+        };
+
+        // Inputs
+        const input = {
+            joystickX: 0,  // -1 to 1 (Left / Right)
+            joystickY: 0,  // -1 to 1 (Up / Down)
+            throttle: 0    // -1 to 1 (Reverse / Forward)
+        };
+
+        // Environment: A simple park grid with random blocky trees
+        const parkSize = 300;
+        const trees = [];
+        for(let i=0; i<60; i++) {
+            trees.push({
+                x: (Math.random() - 0.5) * parkSize,
+                z: (Math.random() - 0.5) * parkSize,
+                height: 10 + Math.random() * 15,
+                radius: 3 + Math.random() * 4
+            });
+        }
+
+        // 3D Tetrahedron Definition (Centered around its own origin)
+        // A tetrahedron has 4 vertices and 4 triangular faces
+        const s = 2; // size scale
+        const tetraVertices = [
+            {x: 0,    y: s,   z: 0},                 // Top
+            {x: s,    y: -s,  z: -s},                // Front Right
+            {x: -s,   y: -s,  z: -s},                // Front Left
+            {x: 0,    y: -s,  z: s}                  // Back
+        ];
+        const tetraFaces = [
+            [0, 1, 2], // Front face
+            [0, 2, 3], // Left face
+            [0, 3, 1], // Right face
+            [1, 3, 2]  // Bottom face
+        ];
+
+        // --- CONTROLS LOGIC ---
+        
+        // Joystick Logic
+        const jStick = document.getElementById('joystick-stick');
+        const jBounds = document.getElementById('joystick-boundary');
+        let jActive = false;
+        let jStartPos = {x: 0, y: 0};
+
+        function handleJoystickMove(clientX, clientY) {
+            const rect = jBounds.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            let dx = clientX - centerX;
+            let dy = clientY - centerY;
+            const maxDist = rect.width / 2 - 20;
+
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+            }
+
+            jStick.style.transform = `translate(${dx}px, ${dy}px)`;
+            
+            // Normalize values to -1 to 1
+            input.joystickX = dx / maxDist;
+            input.joystickY = dy / maxDist;
+        }
+
+        jBounds.addEventListener('touchstart', (e) => { jActive = true; handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY); });
+        window.addEventListener('touchmove', (e) => { if(jActive) handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+        window.addEventListener('touchend', () => { jActive = false; jStick.style.transform = 'translate(0px, 0px)'; input.joystickX = 0; input.joystickY = 0; });
+
+        // Mouse fallbacks for desktop testing
+        jBounds.addEventListener('mousedown', (e) => { jActive = true; handleJoystickMove(e.clientX, e.clientY); });
+        window.addEventListener('mousemove', (e) => { if(jActive) handleJoystickMove(e.clientX, e.clientY); });
+        window.addEventListener('mouseup', () => { jActive = false; jStick.style.transform = 'translate(0px, 0px)'; input.joystickX = 0; input.joystickY = 0; });
+
+        // Throttle Logic
+        const tKnob = document.getElementById('throttle-knob');
+        const tContainer = document.getElementById('throttle-container');
+        let tActive = false;
+
+        function handleThrottleMove(clientY) {
+            const rect = tContainer.getBoundingClientRect();
+            const trackHeight = 100; 
+            const topLimit = 20;
+            
+            let relativeY = clientY - rect.top - 12; // Adjusted for half knob height
+            if(relativeY < topLimit) relativeY = topLimit;
+            if(relativeY > topLimit + trackHeight) relativeY = topLimit + trackHeight;
+
+            tKnob.style.top = `${relativeY}px`;
+
+            // Convert to a range of -1 (bottom) to 1 (top)
+            const percent = (relativeY - topLimit) / trackHeight; // 0 to 1
+            input.throttle = -(percent * 2 - 1); // Flip so top is positive forward
+        }
+
+        tContainer.addEventListener('touchstart', (e) => { tActive = true; handleThrottleMove(e.touches[0].clientY); });
+        window.addEventListener('touchmove', (e) => { if(tActive) handleThrottleMove(e.touches[0].clientY); });
+        window.addEventListener('touchend', () => { tActive = false; });
+
+        tContainer.addEventListener('mousedown', (e) => { tActive = true; handleThrottleMove(e.clientY); });
+        window.addEventListener('mousemove', (e) => { if(tActive) handleThrottleMove(e.clientY); });
+        window.addEventListener('mouseup', () => { tActive = false; });
+
+
+        // --- 3D ENGINE MATH ---
+        // Simple 3D projection projection setup
+        const FOV = 200; 
+        const cx = V_WIDTH / 2;
+        const cy = V_HEIGHT / 2;
+
+        function project(x, y, z) {
+            // Translate relative to camera
+            let tx = x - player.x;
+            let ty = y - player.y;
+            let tz = z - player.z;
+
+            // Rotate around Yaw (Y-axis)
+            let cosY = Math.cos(-player.yaw);
+            let sinY = Math.sin(-player.yaw);
+            let x1 = tx * cosY - tz * sinY;
+            let z1 = tx * sinY + tz * cosY;
+
+            // Rotate around Pitch (X-axis)
+            let cosP = Math.cos(-player.pitch);
+            let sinP = Math.sin(-player.pitch);
+            let y2 = ty * cosP - z1 * sinP;
+            let z2 = ty * sinP + z1 * cosP;
+
+            // Prevent rendering things behind the camera
+            if (z2 <= 0.1) return null; 
+
+            // Project to 2D Screen
+            return {
+                x: (x1 * FOV) / z2 + cx,
+                y: (y2 * FOV) / z2 + cy,
+                depth: z2
+            };
+        }
+
+        // --- GAME LOOP ---
+        let lastTime = 0;
+        let objectRotation = 0; // Rotate the player's own model slightly for effect
+
+        function updateAndRender(time) {
+            let dt = (time - lastTime) / 1000;
+            if(!dt) dt = 0;
+            lastTime = time;
+
+            // 1. Update Player Physics & Position
+            // Joystick handles turning (yaw) and pitching up/down
+            player.yaw += input.joystickX * 2 * dt;
+            player.pitch -= input.joystickY * 1.5 * dt;
+            // Clamp pitch to avoid flipping upside down
+            player.pitch = Math.max(-Math.PI/4, Math.min(Math.PI/4, player.pitch));
+
+            // Throttle handles forward/backward speed
+            player.speed = input.throttle * 25; // Max speed multiplier
+
+            // Move player along their current orientation vector
+            player.x += Math.sin(player.yaw) * player.speed * dt;
+            player.z += Math.cos(player.yaw) * player.speed * dt;
+            player.y += Math.sin(player.pitch) * player.speed * dt;
+
+            // Keep above ground floor bounds
+            if (player.y < 2) player.y = 2; 
+
+            // Update Telemetry UI Text
+            altVal.textContent = Math.round(player.y);
+            spdVal.textContent = Math.round(Math.abs(player.speed));
+
+            objectRotation += 1 * dt; // Self spin rate
+
+            // 2. Clear Screen (Sky color)
+            ctx.fillStyle = '#001122';
+            ctx.fillRect(0, 0, V_WIDTH, V_HEIGHT);
+
+            // 3. Draw Horizon / Ground Plane
+            // Ground lines or blocks to simulate a park matrix grid
+            ctx.strokeStyle = '#114411';
+            ctx.lineWidth = 1;
+            const gridSize = 20;
+            const playerGridX = Math.floor(player.x / gridSize) * gridSize;
+            const playerGridZ = Math.floor(player.z / gridSize) * gridSize;
+
+            for(let x = playerGridX - 160; x <= playerGridX + 160; x += gridSize) {
+                ctx.beginPath();
+                for(let z = playerGridZ - 160; z <= playerGridZ + 160; z += 10) {
+                    let p = project(x, 0, z);
+                    if(p) {
+                        if (z === playerGridZ - 160) ctx.moveTo(p.x, p.y);
+                        else ctx.lineTo(p.x, p.y);
+                    }
+                }
+                ctx.stroke();
+            }
+
+            // 4. Render Park Trees (Drawn as solid-colored pixel pillars)
+            trees.forEach(tree => {
+                let base = project(tree.x, 0, tree.z);
+                let top = project(tree.x, tree.height, tree.z);
+
+                if(base && top) {
+                    let size = (tree.radius * FOV) / base.depth;
+                    if (size > 0) {
+                        // Trunk / Core
+                        ctx.fillStyle = '#442200';
+                        ctx.fillRect(top.x - size/4, top.y, size/2, base.y - top.y);
+                        // Foliage
+                        ctx.fillStyle = '#226622';
+                        ctx.fillRect(top.x - size/2, top.y - size/4, size, size);
+                    }
+                }
+            });
+
+            // 5. Render Player's Tetrahedron Ship floating out in front
+            // To make it visible to the user like a trailing 3rd-person camera,
+            // we place it slightly ahead of the camera matrix view.
+            let shipX = player.x + Math.sin(player.yaw) * 12;
+            let shipZ = player.z + Math.cos(player.yaw) * 12;
+            let shipY = player.y - 2 + Math.sin(player.pitch) * 12;
+
+            // Project and compile the local vertices of the ship transformed into world space
+            let projectedVertices = [];
+            tetraVertices.forEach(v => {
+                // Apply a slight aesthetic self-spin around its Y-axis
+                let rx = v.x * Math.cos(objectRotation) - v.z * Math.sin(objectRotation);
+                let rz = v.x * Math.sin(objectRotation) + v.z * Math.cos(objectRotation);
+                
+                // Translate vertex to world position where ship is floating
+                let p = project(shipX + rx, shipY + v.y, shipZ + rz);
+                projectedVertices.push(p);
+            });
+
+            // Draw the structural wireframe faces of the tetrahedron
+            ctx.lineWidth = 1;
+            const colors = ['#00ffcc', '#ff00ff', '#ffff00', '#ffffff'];
+            tetraFaces.forEach((face, idx) => {
+                let p1 = projectedVertices[face[0]];
+                let p2 = projectedVertices[face[1]];
+                let p3 = projectedVertices[face[2]];
+
+                if(p1 && p2 && p3) {
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.lineTo(p3.x, p3.y);
+                    ctx.closePath();
+                    
+                    // Transparent face styling + neon glowing strokes
+                    ctx.fillStyle = 'rgba(0, 255, 200, 0.15)';
+                    ctx.fill();
+                    ctx.strokeStyle = colors[idx];
+                    ctx.stroke();
+                }
+            });
+
+            requestAnimationFrame(updateAndRender);
+        }
+
+        // Initialize Loop
+        requestAnimationFrame(updateAndRender);
+
+    </script>
+</body>
+</html>

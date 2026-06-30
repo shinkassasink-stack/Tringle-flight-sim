@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tringle Flight Simulator | Retro 3D Flight Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="landing">
+    <nav>
+        <div class="logo">△ TRINGLE</div>
+        <div>
+            <a href="#home">HOME</a>
+            <a href="pages/game.html">PLAY</a>
+            <a href="#about">ABOUT</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="logo">🛸</div>
+        <h1>TRINGLE FLIGHT SIMULATOR</h1>
+        <p class="subtitle">
+            Experience retro 3D flight through a procedurally-generated park.<br>
+            Control your tetrahedron ship with intuitive controls and chase the horizon.
+        </p>
+
+        <div>
+            <a href="pages/game.html" class="cta-button">LAUNCH SIMULATOR</a>
+            <a href="#about" class="cta-button secondary">LEARN MORE</a>
+        </div>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🎮</div>
+                <h3>Intuitive Controls</h3>
+                <p>Joystick for steering, throttle slider for speed. Works on mobile and desktop.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🟰</div>
+                <h3>Tetrahedron Ship</h3>
+                <p>Pilot a rotating tetrahedron through an endless procedural landscape.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎨</div>
+                <h3>Retro Aesthetic</h3>
+                <p>Pixelated 400x240 rendering with neon colors and classic sci-fi vibes.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h3>Live Telemetry</h3>
+                <p>Real-time altitude and speed readouts for immersive flight data.</p>
+            </div>
+        </div>
+
+        <footer id="about">
+            <h2 style="margin-bottom: 15px; color: #00ffcc;">About</h2>
+            <p>
+                Tringle Flight Simulator is a retro-inspired 3D flight game featuring procedurally-generated environments,
+                intuitive mobile-friendly controls, and a minimalist aesthetic. Take control of a tetrahedron spaceship
+                and explore an endless park filled with trees and dynamic terrain.
+            </p>
+            <p style="margin-top: 15px;">
+                Built with vanilla JavaScript and Canvas API • <a href="https://github.com/shinkassasink-stack/Tringle-flight-sim" target="_blank">GitHub Repository</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tringle hq</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #0d0e12;
+            --container-bg: #161920;
+            --accent-color: #ff5733; /* Neon/Geometric orange */
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-color: #2a2e3d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Space Grotesk', sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Subtle geometric background accent */
+        body::before {
+            content: "";
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(255, 87, 51, 0.15) 0%, rgba(0,0,0,0) 70%);
+            top: 15%;
+            left: 20%;
+            z-index: -1;
+        }
+
+        .container {
+            background-color: var(--container-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px rgba(255, 87, 51, 0.1);
+            border-color: rgba(255, 87, 51, 0.3);
+        }
+
+        /* Tetrahedron Visual Element */
+        .tetrahedron-icon {
+            width: 0;
+            height: 0;
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+            border-bottom: 70px solid var(--accent-color);
+            margin: 0 auto 24px auto;
+            filter: drop-shadow(0 0 15px rgba(255, 87, 51, 0.6));
+            position: relative;
+        }
+        
+        /* Simulating 3D facet of a tetrahedron */
+        .tetrahedron-icon::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -40px;
+            width: 0;
+            height: 0;
+            border-left: 40px solid transparent;
+            border-right: 0px solid transparent;
+            border-bottom: 70px solid rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            letter-spacing: -0.05em;
+            background: linear-gradient(135deg, #ffffff 0%, var(--text-muted) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 32px;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: transparent;
+            color: var(--text-main);
+            border: 2px solid var(--accent-color);
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            background-color: var(--accent-color);
+            box-shadow: 0 0 20px rgba(255, 87, 51, 0.4);
+        }
+
+        footer {
+            margin-top: 40px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+
+    <main class="container">
+        <div class="tetrahedron-icon"></div>
+        
+        <h1>Welcome to tringle hq</h1>
+        <p>This is my master coding hub—a localized matrix dedicated to sharp logic, structural development, and four-dimensional projects built from the ground up.</p>
+        
+        <a href="#" class="btn">Enter Hub</a>
+    </main>
+
+    <footer>
+        Created by [shink] in 2026
+    </footer>
+
+</body>
+</html>
